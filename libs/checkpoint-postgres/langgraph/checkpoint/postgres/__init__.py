@@ -1,9 +1,9 @@
 import threading
 from contextlib import contextmanager
-from typing import Any, Iterator, List, Optional, Union
+from typing import Any, Dict, Iterator, List, Optional, Union
 
 from langchain_core.runnables import RunnableConfig
-from psycopg import Connection, Cursor, Pipeline
+from psycopg import Connection, Cursor, DatabaseError, Pipeline
 from psycopg.errors import UndefinedTable
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
@@ -250,6 +250,57 @@ class PostgresSaver(BasePostgresSaver):
                     else None,
                     self._load_writes(value["pending_writes"]),
                 )
+
+    def get_writes_by_task_ids(self, task_ids: List[str]) -> Dict[str, List[Any]]:
+        """Get checkpoint writes from the database based on multiple task IDs.
+
+        This method retrieves checkpoint writes from the Postgres database based on the
+        provided list of task IDs.
+
+        Args:
+            task_ids (List[str]): A list of task IDs to retrieve checkpoint writes for.
+
+        Returns:
+            Dict[str, List[Any]]: A dictionary where keys are task IDs and values are lists of checkpoint writes.
+
+        Examples:
+            >>> task_ids = ["task1", "task2", "task3"]
+            >>> checkpoint_writes = memory.get_writes_by_task_ids(task_ids)
+            >>> for task_id, writes in checkpoint_writes.items():
+            ...     print(f"Task ID: {task_id}")
+            ...     for write in writes:
+            ...         print(f"  {write}")
+        """
+        results = {}
+        try:
+            with self._cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT task_id, channel, type, blob
+                    FROM checkpoint_writes
+                    WHERE task_id = ANY(%s)
+                    ORDER BY task_id, idx ASC
+                    """,
+                    (task_ids,),
+                    binary=True,
+                )
+
+                for row in cur:
+                    task_id = row["task_id"]
+                    if task_id not in results:
+                        results[task_id] = []
+                    # Appending all the writes to the mapping task_id
+                    results[task_id].append(
+                        (row["task_id"], row["channel"], row["type"], row["blob"])
+                    )
+        except DatabaseError as e:
+            raise RuntimeError(
+                f"Exception occurred while fetching writes from the database: {e}"
+            ) from e
+
+        return {
+            task_id: self._load_writes(writes) for task_id, writes in results.items()
+        }
 
     def put(
         self,
