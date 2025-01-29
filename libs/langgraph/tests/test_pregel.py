@@ -6288,3 +6288,35 @@ def test_named_tasks_functional() -> None:
         {"qux": "foo|bar|baz|custom_baz|qux"},
         {"workflow": "foo|bar|baz|custom_baz|qux"},
     ]
+
+
+def test_update_preserve_pending_writes():
+    """Test that pending writes are preserved after a state update."""
+
+    class State(TypedDict):
+        foo: str
+
+    def node(state: State):
+        value = interrupt("Hey what's up?")
+
+    workflow = StateGraph(State)
+    workflow.add_node("node", node)
+    workflow.set_entry_point("node")
+
+    checkpointer = MemorySaver()
+    graph = workflow.compile(
+        checkpointer=checkpointer,
+    )
+
+    config = {"configurable": {"thread_id": "1"}}
+    graph.invoke({"foo": "hello"}, config)
+
+    pending_writes = graph.checkpointer.get_tuple(config).pending_writes
+    assert len(pending_writes) == 1
+    pending_write = pending_writes[0]
+    _, write_type, _ = pending_write
+    assert write_type == "__interrupt__"
+
+    graph.update_state(config, {"foo": "goodbye"})
+    pending_writes = graph.checkpointer.get_tuple(config).pending_writes
+    assert len(pending_writes) == 1
