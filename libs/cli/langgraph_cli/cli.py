@@ -1,8 +1,10 @@
+"""CLI entrypoint for LangGraph API server."""
+
 import os
 import pathlib
 import shutil
 import sys
-from typing import Callable, Optional, Sequence
+from typing import Callable, List, Optional, Sequence, Tuple
 
 import click
 import click.exceptions
@@ -18,6 +20,8 @@ from langgraph_cli.exec import Runner, subp_exec
 from langgraph_cli.progress import Progress
 from langgraph_cli.templates import TEMPLATE_HELP_STRING, create_new
 from langgraph_cli.version import __version__
+
+sys.stdout.reconfigure(encoding="utf-8")
 
 OPT_DOCKER_COMPOSE = click.option(
     "--docker-compose",
@@ -659,7 +663,7 @@ def prepare_args_and_stdin(
     debugger_port: Optional[int] = None,
     debugger_base_url: Optional[str] = None,
     postgres_uri: Optional[str] = None,
-):
+) -> Tuple[List[str], str]:
     # prepare args
     stdin = langgraph_cli.docker.compose(
         capabilities,
@@ -703,7 +707,8 @@ def prepare(
     debugger_port: Optional[int] = None,
     debugger_base_url: Optional[str] = None,
     postgres_uri: Optional[str] = None,
-):
+) -> Tuple[List[str], str]:
+    """Prepare the arguments and stdin for running the LangGraph API server."""
     config_json = langgraph_cli.config.validate_config_file(config_path)
     # pull latest images
     if pull:
