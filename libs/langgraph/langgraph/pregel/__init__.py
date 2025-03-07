@@ -1210,7 +1210,7 @@ class Pregel(PregelProtocol):
             # no values as END, just clear all tasks
             if values is None and as_node == END:
                 if len(updates) > 1:
-                    raise ValueError(
+                    raise InvalidUpdateError(
                         "Cannot apply multiple updates when clearing state"
                     )
 
@@ -1271,7 +1271,7 @@ class Pregel(PregelProtocol):
             # no values, empty checkpoint
             if values is None and as_node is None:
                 if len(updates) > 1:
-                    raise ValueError(
+                    raise InvalidUpdateError(
                         "Cannot create empty checkpoint with multiple updates"
                     )
 
@@ -1295,7 +1295,9 @@ class Pregel(PregelProtocol):
             # no values, copy checkpoint
             if values is None and as_node == "__copy__":
                 if len(updates) > 1:
-                    raise ValueError("Cannot copy checkpoint with multiple updates")
+                    raise InvalidUpdateError(
+                        "Cannot copy checkpoint with multiple updates"
+                    )
 
                 next_checkpoint = create_checkpoint(checkpoint, None, step)
                 # copy checkpoint
@@ -1414,8 +1416,8 @@ class Pregel(PregelProtocol):
                 run_tasks.append(task)
                 run_task_ids.append(task_id)
 
-            for task in run_tasks:
                 run = RunnableSequence(*writers) if len(writers) > 1 else writers[0]
+
                 # execute task
                 run.invoke(
                     values,
@@ -1545,7 +1547,7 @@ class Pregel(PregelProtocol):
             # no values, just clear all tasks
             if values is None and as_node == END:
                 if len(updates) > 1:
-                    raise ValueError(
+                    raise InvalidUpdateError(
                         "Cannot apply multiple updates when clearing state"
                     )
 
@@ -1606,7 +1608,7 @@ class Pregel(PregelProtocol):
             # no values, empty checkpoint
             if values is None and as_node is None:
                 if len(updates) > 1:
-                    raise ValueError(
+                    raise InvalidUpdateError(
                         "Cannot create empty checkpoint with multiple updates"
                     )
 
@@ -1630,7 +1632,9 @@ class Pregel(PregelProtocol):
             # no values, copy checkpoint
             if values is None and as_node == "__copy__":
                 if len(updates) > 1:
-                    raise ValueError("Cannot copy checkpoint with multiple updates")
+                    raise InvalidUpdateError(
+                        "Cannot copy checkpoint with multiple updates"
+                    )
 
                 next_checkpoint = create_checkpoint(checkpoint, None, step)
                 # copy checkpoint
@@ -1746,8 +1750,8 @@ class Pregel(PregelProtocol):
                 run_tasks.append(task)
                 run_task_ids.append(task_id)
 
-            for task in run_tasks:
                 run = RunnableSequence(*writers) if len(writers) > 1 else writers[0]
+
                 # execute task
                 await run.ainvoke(
                     values,
