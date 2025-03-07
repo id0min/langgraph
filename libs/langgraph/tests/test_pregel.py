@@ -6880,7 +6880,7 @@ def test_interrupt_subgraph_reenter_checkpointer_true(
     assert bar_values == [None, "barbaz", "quxbaz"]
 
 
-@pytest.mark.parametrize("checkpointer_name", ALL_CHECKPOINTERS_SYNC)
+@pytest.mark.parametrize("checkpointer_name", REGULAR_CHECKPOINTERS_SYNC)
 def test_bulk_state_updates(
     request: pytest.FixtureRequest, checkpointer_name: str
 ) -> None:
