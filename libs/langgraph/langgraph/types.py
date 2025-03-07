@@ -133,6 +133,11 @@ class Interrupt:
     when: Literal["during"] = "during"
 
 
+class BulkUpdate(NamedTuple):
+    values: dict[str, Any] | None
+    as_node: Optional[str]
+
+
 class PregelTask(NamedTuple):
     id: str
     name: str
