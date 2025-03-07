@@ -1400,7 +1400,7 @@ class Pregel(PregelProtocol):
 
                     valid_updates.append((values, as_node))
 
-            tasks: list[tuple[str, PregelTaskWrites]] = []
+            run_tasks: list[tuple[str, PregelTaskWrites]] = []
             for values, as_node in valid_updates:
                 # create task to run all writers of the chosen node
                 writers = self.nodes[as_node].flat_writers
@@ -1409,9 +1409,9 @@ class Pregel(PregelProtocol):
                 writes: deque[tuple[str, Any]] = deque()
                 task = PregelTaskWrites((), as_node, writes, [INTERRUPT])
                 task_id = str(uuid5(UUID(checkpoint["id"]), INTERRUPT))
-                tasks.append((task_id, task))
+                run_tasks.append((task_id, task))
 
-            for _, task in tasks:
+            for _, task in run_tasks:
                 run = RunnableSequence(*writers) if len(writers) > 1 else writers[0]
                 # execute task
                 run.invoke(
@@ -1440,7 +1440,7 @@ class Pregel(PregelProtocol):
                 )
 
             # save task writes
-            for _, task in tasks:
+            for _, task in run_tasks:
                 channel_writes = [w for w in task.writes if w[0] != PUSH]
 
                 # channel writes are saved to current checkpoint
@@ -1449,7 +1449,10 @@ class Pregel(PregelProtocol):
 
             # apply to checkpoint and save
             mv_writes = apply_writes(
-                checkpoint, channels, tasks, checkpointer.get_next_version
+                checkpoint,
+                channels,
+                [t for _, t in run_tasks],
+                checkpointer.get_next_version,
             )
 
             assert not mv_writes, "Can't write to SharedValues from update_state"
@@ -1470,7 +1473,7 @@ class Pregel(PregelProtocol):
                 ),
             )
 
-            for task_id, task in tasks:
+            for task_id, task in run_tasks:
                 if push_writes := [w for w in task.writes if w[0] == PUSH]:
                     checkpointer.put_writes(next_config, push_writes, task_id)
 
@@ -1728,7 +1731,7 @@ class Pregel(PregelProtocol):
 
                     valid_updates.append((values, as_node))
 
-            tasks: list[tuple[str, PregelTaskWrites]] = []
+            run_tasks: list[tuple[str, PregelTaskWrites]] = []
 
             for values, as_node in valid_updates:
                 # create task to run all writers of the chosen node
@@ -1738,9 +1741,9 @@ class Pregel(PregelProtocol):
                 writes: deque[tuple[str, Any]] = deque()
                 task = PregelTaskWrites((), as_node, writes, [INTERRUPT])
                 task_id = str(uuid5(UUID(checkpoint["id"]), INTERRUPT))
-                tasks.append((task_id, task))
+                run_tasks.append((task_id, task))
 
-            for _, task in tasks:
+            for _, task in run_tasks:
                 run = RunnableSequence(*writers) if len(writers) > 1 else writers[0]
                 # execute task
                 await run.ainvoke(
@@ -1769,7 +1772,7 @@ class Pregel(PregelProtocol):
                 )
 
             # save task writes
-            for _, task in tasks:
+            for _, task in run_tasks:
                 # channel writes are saved to current checkpoint
                 channel_writes = [w for w in task.writes if w[0] != PUSH]
                 if saved and channel_writes:
@@ -1779,7 +1782,10 @@ class Pregel(PregelProtocol):
 
             # apply to checkpoint and save
             mv_writes = apply_writes(
-                checkpoint, channels, [task], checkpointer.get_next_version
+                checkpoint,
+                channels,
+                [t for _, t in run_tasks],
+                checkpointer.get_next_version,
             )
             assert not mv_writes, "Can't write to SharedValues from update_state"
             checkpoint = create_checkpoint(checkpoint, channels, step + 1)
@@ -1799,7 +1805,7 @@ class Pregel(PregelProtocol):
                 ),
             )
 
-            for task_id, task in tasks:
+            for task_id, task in run_tasks:
                 # save push writes
                 if push_writes := [w for w in task.writes if w[0] == PUSH]:
                     await checkpointer.aput_writes(next_config, push_writes, task_id)
@@ -1816,7 +1822,7 @@ class Pregel(PregelProtocol):
         node `as_node`. If `as_node` is not provided, it will be set to the last node
         that updated the state, if not ambiguous.
         """
-        return self.bulk_update_state(config, [(values, as_node)])
+        return self.bulk_update_state(config, [BulkUpdate(values, as_node)])
 
     async def aupdate_state(
         self,
@@ -1828,7 +1834,7 @@ class Pregel(PregelProtocol):
         node `as_node`. If `as_node` is not provided, it will be set to the last node
         that updated the state, if not ambiguous.
         """
-        return await self.bulk_update_state(config, [(values, as_node)])
+        return await self.abulk_update_state(config, [BulkUpdate(values, as_node)])
 
     def _defaults(
         self,
