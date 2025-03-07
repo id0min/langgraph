@@ -1470,7 +1470,7 @@ class Pregel(PregelProtocol):
                 ),
             )
 
-            for _, task in tasks:
+            for task_id, task in tasks:
                 if push_writes := [w for w in task.writes if w[0] == PUSH]:
                     checkpointer.put_writes(next_config, push_writes, task_id)
 
@@ -1799,7 +1799,7 @@ class Pregel(PregelProtocol):
                 ),
             )
 
-            for _, task in tasks:
+            for task_id, task in tasks:
                 # save push writes
                 if push_writes := [w for w in task.writes if w[0] == PUSH]:
                     await checkpointer.aput_writes(next_config, push_writes, task_id)
