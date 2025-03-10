@@ -133,7 +133,7 @@ class Interrupt:
     when: Literal["during"] = "during"
 
 
-class BulkUpdate(NamedTuple):
+class StateUpdate(NamedTuple):
     values: Optional[dict[str, Any]]
     as_node: Optional[str] = None
 
