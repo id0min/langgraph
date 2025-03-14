@@ -7931,7 +7931,7 @@ async def test_bulk_state_updates(checkpointer_name: str) -> None:
                 ],
             )
 
-            
+
 @NEEDS_CONTEXTVARS
 async def test_handles_multiple_interrupts_from_tasks() -> None:
     @task
@@ -7983,4 +7983,3 @@ async def test_handles_multiple_interrupts_from_tasks() -> None:
     assert len(result) == 2
     assert result[0] == "Added James!"
     assert result[1] == "Added Will!"
-
