@@ -11,6 +11,7 @@ from bench.react_agent import react_agent
 from bench.sequential import create_sequential
 from bench.wide_state import wide_state
 from langgraph.checkpoint.memory import MemorySaver
+from langgraph.graph import StateGraph
 from langgraph.pregel import Pregel
 
 
@@ -29,6 +30,21 @@ async def arun(graph: Pregel, input: dict):
     )
 
 
+async def arun_first_event_latency(graph: Pregel, input: dict) -> None:
+    """Latency for the first event.
+
+    Run the graph until the first event is processed and then stop.
+    """
+    async for _ in graph.astream(
+        input,
+        {
+            "configurable": {"thread_id": str(uuid4())},
+            "recursion_limit": 1000000000,
+        },
+    ):
+        break
+
+
 def run(graph: Pregel, input: dict):
     len(
         [
@@ -42,6 +58,26 @@ def run(graph: Pregel, input: dict):
             )
         ]
     )
+
+
+def run_first_event_latency(graph: Pregel, input: dict) -> None:
+    """Latency for the first event.
+
+    Run the graph until the first event is processed and then stop.
+    """
+    for _ in graph.stream(
+        input,
+        {
+            "configurable": {"thread_id": str(uuid4())},
+            "recursion_limit": 1000000000,
+        },
+    ):
+        break
+
+
+def compile_graph(graph: StateGraph) -> None:
+    """Compile the graph."""
+    graph.compile()
 
 
 benchmarks = (
@@ -330,7 +366,58 @@ benchmarks = (
 
 r = Runner()
 
+# Full graph run time
 for name, agraph, graph, input in benchmarks:
     r.bench_async_func(name, arun, agraph, input, loop_factory=new_event_loop)
     if graph is not None:
         r.bench_func(name + "_sync", run, graph, input)
+
+
+# First event latency
+for name, agraph, graph, input in benchmarks:
+    r.bench_async_func(
+        name + "_first_event_latency",
+        arun_first_event_latency,
+        agraph,
+        input,
+        loop_factory=new_event_loop,
+    )
+    if graph is not None:
+        r.bench_func(
+            name + "_first_event_latency_sync", run_first_event_latency, graph, input
+        )
+
+# Graph compilation times
+compilation_benchmarks = (
+    (
+        "sequential_1000",
+        create_sequential(1_000),
+    ),
+    (
+        "sequential_10000",
+        create_sequential(10_000),
+    ),
+    (
+        "pydantic_state_25x300",
+        pydantic_state(300),
+    ),
+    (
+        "pydantic_state_15x600",
+        pydantic_state(600),
+    ),
+    (
+        "pydantic_state_9x1200",
+        pydantic_state(1200),
+    ),
+    (
+        "wide_state_15x600",
+        wide_state(600),
+    ),
+    (
+        "wide_state_9x1200",
+        wide_state(1200),
+    ),
+)
+
+for name, graph in compilation_benchmarks:
+    r.bench_func(name, "_compilation", compile_graph, graph)
